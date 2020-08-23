@@ -1,0 +1,46 @@
+{
+    "ExampleJson": {
+        "1": {
+            "Age": 18,
+            "Name": "张三"
+        },
+        "2": {
+            "Age": 20,
+            "Name": "王二"
+        },
+        "3": {
+            "Age": 25,
+            "Name": "李四"
+        },
+        "4": {
+            "Age": 30,
+            "Name": "大王"
+        },
+        "5": {
+            "Age": 24,
+            "Name": "刘大宝"
+        }
+    },
+    "ExampleJson2": {
+        "1": {
+            "Defense": 100,
+            "Other": "a"
+        },
+        "2": {
+            "Defense": 150,
+            "Other": "b"
+        },
+        "3": {
+            "Defense": 200,
+            "Other": "c"
+        },
+        "4": {
+            "Defense": 250,
+            "Other": "d"
+        },
+        "5": {
+            "Defense": 350,
+            "Other": "e"
+        }
+    }
+}
