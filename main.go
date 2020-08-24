@@ -8,10 +8,11 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"time"
 )
 
 var (
-	path    string
+	paths   string
 	outPath string
 	single  bool
 	array   bool
@@ -26,36 +27,56 @@ func max(a, b int) int {
 }
 
 func init() {
-	flag.StringVar(&path, "p", "", "Excel文件路径")
+	flag.StringVar(&paths, "p", "", "Excel文件路径, 多个以','分割")
 	flag.StringVar(&outPath, "op", "", "Json文件输出路径 (相对于excel)")
-	flag.BoolVar(&single, "s", false, "true: 多个sheet导出一个json文件, false: 对应sheet导出对应json文件")
-	flag.BoolVar(&array, "a", false, "true: 转换为数组, false: 转换为对象")
+	flag.BoolVar(&single, "s", false, "多个sheet导出一个json文件, 默认对应sheet导出对应json文件")
+	flag.BoolVar(&array, "a", false, "转换为数组, 默认转换为对象")
 }
 
 func main() {
 	flag.Parse()
-	if path == "" {
+	if paths == "" {
 		flag.PrintDefaults()
 		return
 	}
 
-	excel, err := xlsx.OpenFile(path)
-	if err != nil {
-		fmt.Println(err)
-		return
+	startTime := time.Now()
+	pathArray := strings.Split(paths, ",")
+	ch := make(chan int, len(pathArray))
+	for _, path := range pathArray {
+		go func(path string) {
+			excel, err := xlsx.OpenFile(path)
+			if err != nil {
+				fmt.Println(err)
+				ch <- 0
+				return
+			}
+
+			lastIndex := max(strings.LastIndex(path, "\\"), strings.LastIndex(path, "/")) + 1
+			writePath := path[:lastIndex]
+			if outPath != "" {
+				writePath += outPath + "/"
+			}
+
+			excelName := path[lastIndex:strings.LastIndex(path, ".")]
+			if array {
+				convertToArray(excel, excelName, writePath)
+			} else {
+				convertToJson(excel, excelName, writePath)
+			}
+
+			ch <- 0
+		}(path)
 	}
 
-	lastIndex := max(strings.LastIndex(path, "\\"), strings.LastIndex(path, "/")) + 1
-	outPath = path[:lastIndex] + outPath + "/"
-	excelName := path[lastIndex:strings.LastIndex(path, ".")]
-	if array {
-		convertToArray(excel, excelName)
-	} else {
-		convertToJson(excel, excelName)
+	for range pathArray {
+		<-ch
 	}
+
+	fmt.Println("用时:", time.Since(startTime))
 }
 
-func convertToArray(excel *xlsx.File, excelName string) {
+func convertToArray(excel *xlsx.File, excelName string, writePath string) {
 	jsonMap := make(map[string]interface{})
 	for _, sheet := range excel.Sheets {
 		if len(sheet.Rows) == 0 || len(sheet.Rows[0].Cells) == 0 {
@@ -74,16 +95,16 @@ func convertToArray(excel *xlsx.File, excelName string) {
 		}
 
 		jsonByte, _ := json.Marshal(sheetArray)
-		writeJson(jsonByte, fileName)
+		writeJson(jsonByte, fileName, writePath)
 	}
 
 	if single {
 		jsonByte, _ := json.Marshal(jsonMap)
-		writeJson(jsonByte, excelName)
+		writeJson(jsonByte, excelName, writePath)
 	}
 }
 
-func convertToJson(excel *xlsx.File, excelName string) {
+func convertToJson(excel *xlsx.File, excelName string, writePath string) {
 	jsonMap := make(map[string]interface{})
 	for _, sheet := range excel.Sheets {
 		if len(sheet.Rows) == 0 || len(sheet.Rows[0].Cells) == 0 {
@@ -102,23 +123,23 @@ func convertToJson(excel *xlsx.File, excelName string) {
 		}
 
 		jsonByte, _ := json.Marshal(sheetJson)
-		writeJson(jsonByte, fileName)
+		writeJson(jsonByte, fileName, writePath)
 	}
 
 	if single {
 		jsonByte, _ := json.Marshal(jsonMap)
-		writeJson(jsonByte, excelName)
+		writeJson(jsonByte, excelName, writePath)
 	}
 }
 
-func writeJson(json []byte, fileName string) {
-	err := os.MkdirAll(outPath, os.ModePerm)
+func writeJson(json []byte, fileName string, writePath string) {
+	err := os.MkdirAll(writePath, os.ModePerm)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	writePath := outPath + fileName + ".json"
+	writePath += fileName + ".json"
 	err = ioutil.WriteFile(writePath, json, os.ModePerm)
 	if err != nil {
 		fmt.Println(err)
