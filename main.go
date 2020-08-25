@@ -7,11 +7,13 @@ import (
 	"github.com/tealeg/xlsx"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
 
 var (
+	dir     string
 	paths   string
 	outPath string
 	single  bool
@@ -27,6 +29,7 @@ func max(a, b int) int {
 }
 
 func init() {
+	flag.StringVar(&dir, "d", "", "导出一个文件夹下的所有Excel (参数p失效)")
 	flag.StringVar(&paths, "p", "", "Excel文件路径, 多个以','分割")
 	flag.StringVar(&outPath, "op", "", "Json文件输出路径 (相对于excel)")
 	flag.BoolVar(&single, "s", false, "多个sheet导出一个json文件, 默认对应sheet导出对应json文件")
@@ -35,13 +38,19 @@ func init() {
 
 func main() {
 	flag.Parse()
-	if paths == "" {
+	if paths == "" && dir == "" {
 		flag.PrintDefaults()
 		return
 	}
 
 	startTime := time.Now()
-	pathArray := strings.Split(paths, ",")
+	var pathArray []string
+	if dir != "" {
+		pathArray, _ = filepath.Glob(dir + "/*.xlsx")
+	} else {
+		pathArray = strings.Split(paths, ",")
+	}
+
 	ch := make(chan int, len(pathArray))
 	for _, path := range pathArray {
 		go func(path string) {
