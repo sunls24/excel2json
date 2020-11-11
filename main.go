@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -51,13 +52,14 @@ func main() {
 		pathArray = strings.Split(paths, ",")
 	}
 
-	ch := make(chan int, len(pathArray))
+	wg := sync.WaitGroup{}
 	for _, path := range pathArray {
+		wg.Add(1)
 		go func(path string) {
 			excel, err := xlsx.OpenFile(path)
 			if err != nil {
 				fmt.Println(err)
-				ch <- 0
+				wg.Done()
 				return
 			}
 
@@ -74,14 +76,11 @@ func main() {
 				convertToJson(excel, excelName, writePath)
 			}
 
-			ch <- 0
+			wg.Done()
 		}(path)
 	}
 
-	for range pathArray {
-		<-ch
-	}
-
+	wg.Wait()
 	fmt.Println("用时:", time.Since(startTime))
 }
 
